@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nengo-calc v5.0</title>
+    <title>nengo-calc v5.1</title>
     <style>
         :root {
             --main-bg: #e0f2f1;
@@ -102,7 +102,6 @@
             box-sizing: border-box;
         }
 
-        /* 数字入力欄の幅を調整 */
         .year-input { width: 85px; }
         .month-input, .day-input { width: 60px; }
 
@@ -134,7 +133,8 @@
             font-size: 0.7rem;
             color: var(--note-color);
             margin-top: 4px;
-            min-height: 1em;
+            min-height: 1.2em;
+            line-height: 1.2;
         }
     </style>
 </head>
@@ -158,7 +158,6 @@
                 <span>/</span>
                 <input type="number" id="birthD" class="day-input" placeholder="日" inputmode="numeric" oninput="calcAge()">
             </div>
-            
             <label style="margin-top: 5px;">計算基準日（今日）</label>
             <div id="baseDateText" class="base-date-info">----/--/-- (----)</div>
         </div>
@@ -202,12 +201,10 @@
 </div>
 
 <script>
-    // ページ読み込み時の初期化
     window.onload = function() {
         showToday();
     };
 
-    // 今日の日付を表示する
     function showToday() {
         const now = new Date();
         const y = now.getFullYear();
@@ -217,13 +214,11 @@
         document.getElementById('baseDateText').innerText = `${y}/${m}/${d} (${wareki})`;
     }
 
-    // 和暦の文字列を取得する（Intl.DateTimeFormatを使用）
     function getWarekiString(date) {
         const formatter = new Intl.DateTimeFormat('ja-JP-u-ca-japanese', { era: 'long', year: 'numeric' });
         return formatter.format(date).split('/')[0];
     }
 
-    // 全てリセット
     function resetAll() {
         const ids = ['birthY', 'birthM', 'birthD', 'warekiYear', 'seirekiInput'];
         ids.forEach(id => document.getElementById(id).value = "");
@@ -236,39 +231,28 @@
         showToday();
     }
 
-    // 年齢計算
     function calcAge() {
         const y = parseInt(document.getElementById('birthY').value);
         const m = parseInt(document.getElementById('birthM').value);
         const d = parseInt(document.getElementById('birthD').value);
         const resultArea = document.getElementById('ageResult');
 
-        // 全て入力されていない時は計算しない
-        if (!y || !m || !d) {
-            resultArea.innerText = "-- 歳";
-            return;
-        }
+        if (!y || !m || !d) { resultArea.innerText = "-- 歳"; return; }
 
         const today = new Date();
         const birthDate = new Date(y, m - 1, d);
         
-        // 日付として妥当かチェック（例：2月31日などは無効）
         if (birthDate.getFullYear() !== y || birthDate.getMonth() !== m - 1 || birthDate.getDate() !== d) {
-            resultArea.innerText = "無効な日付";
-            return;
+            resultArea.innerText = "無効な日付"; return;
         }
 
         let age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
-        
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-
-        resultArea.innerText = age >= 0 ? `${age} 歳` : "未来の人付";
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) { age--; }
+        resultArea.innerText = age >= 0 ? `${age} 歳` : "未来の日付";
     }
 
-    // 和暦 → 西暦
+    // 和暦 → 西暦（存在しない年号へのフォロー機能付き）
     function calcToSeireki() {
         const era = document.getElementById('eraSelect').value;
         const year = parseInt(document.getElementById('warekiYear').value);
@@ -278,15 +262,34 @@
         if (!year) { resultArea.innerText = "西暦 ---- 年"; noteArea.innerText = ""; return; }
 
         let seireki = 0; let note = "";
-        if (era === 'reiwa') { seireki = year + 2018; if (year === 1) note = "※5月1日から令和元年"; }
-        else if (era === 'heisei') { seireki = year + 1988; if (year === 1) note = "※1月8日から平成元年"; if (year === 31) note = "※4月30日まで平成31年"; }
-        else if (era === 'showa') { seireki = year + 1925; if (year === 1) note = "※12月25日から昭和元年"; if (year === 64) note = "※1月7日まで昭和64年"; }
-        else if (era === 'taisho') { seireki = year + 1911; if (year === 15) note = "※12月24日まで大正15年"; }
         
-        resultArea.innerText = `西暦 ${seireki} 年`; noteArea.innerText = note;
+        if (era === 'reiwa') {
+            seireki = year + 2018;
+            if (year === 1) note = "※5月1日から令和元年";
+        } 
+        else if (era === 'heisei') {
+            seireki = year + 1988;
+            if (year === 1) note = "※1月8日から平成元年";
+            else if (year === 31) note = "※4月30日まで平成31年";
+            else if (year > 31) note = `※実際にはありません（令和${year - 30}年相当）`;
+        } 
+        else if (era === 'showa') {
+            seireki = year + 1925;
+            if (year === 1) note = "※12月25日から昭和元年";
+            else if (year === 64) note = "※1月7日まで昭和64年";
+            else if (year > 64) note = `※実際にはありません（平成${year - 63}年相当）`;
+        } 
+        else if (era === 'taisho') {
+            seireki = year + 1911;
+            if (year === 1) note = "※7月30日から大正元年";
+            else if (year === 15) note = "※12月24日まで大正15年";
+            else if (year > 15) note = `※実際にはありません（昭和${year - 14}年相当）`;
+        }
+        
+        resultArea.innerText = `西暦 ${seireki} 年`;
+        noteArea.innerText = note;
     }
 
-    // 西暦 → 和暦
     function calcToWareki() {
         const year = parseInt(document.getElementById('seirekiInput').value);
         const resultArea = document.getElementById('warekiResult');
